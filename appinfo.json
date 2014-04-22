@@ -1,0 +1,19 @@
+{
+  "uuid": "0d72b5de-7648-43cd-b263-9dc482a8dc1a",
+  "shortName": "ChiMarathon",
+  "longName": "Chicago Marathon for Pebble",
+  "companyName": "Logical Pixels",
+  "versionCode": 1,
+  "versionLabel": "1.0.0",
+  "watchapp": {
+    "watchface": false
+  },
+  "appKeys": {
+    "index": 0,
+    "name": 1,
+    "subtitle": 2
+  },
+  "resources": {
+    "media": []
+  }
+}
