@@ -19,7 +19,7 @@ static int num_runners;
 static char runnersError[128];
 static char buffer[128];
 
-static void runners_clean_list();
+void runners_clean_list();
 static uint16_t runners_menu_get_num_sections_callback(struct MenuLayer *menu_layer, void *callback_context);
 static uint16_t runners_menu_get_num_rows_callback(struct MenuLayer *menu_layer, uint16_t section_index, void *callback_context);
 static int16_t runners_menu_get_header_height_callback(struct MenuLayer *menu_layer, uint16_t section_index, void *callback_context);
@@ -62,7 +62,7 @@ void runners_destroy(void) {
 	window_destroy_safe(runners_window);
 }
 
-static void runners_clean_list() {
+void runners_clean_list() {
 	memset(runners, 0x0, sizeof(runners));
 	num_runners = 0;
 	runnersError[0] = '\0';
@@ -121,7 +121,8 @@ static void runners_menu_draw_row_callback(GContext *ctx, const Layer *cell_laye
 }
 
 static void runners_menu_select_callback(struct MenuLayer *menu_layer, MenuIndex *cell_index, void *callback_context) {
-    //
+    APP_LOG(APP_LOG_LEVEL_DEBUG, "Selected index %d", runners[cell_index->row].index);
+	get_splits(runners[cell_index->row].index, runners[cell_index->row].name);
 }
 
 static void runners_menu_select_long_callback(struct MenuLayer *menu_layer, MenuIndex *cell_index, void *callback_context) {

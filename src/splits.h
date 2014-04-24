@@ -11,9 +11,9 @@
 
 #pragma once
 
-void runners_init(void);
-void runners_show();
-void runners_destroy(void);
-void runners_in_received_handler(DictionaryIterator *iter);
-bool runners_is_on_top();
-void runners_clean_list();
+void splits_init(void);
+void splits_show();
+void splits_destroy(void);
+void splits_in_received_handler(DictionaryIterator *iter);
+bool splits_is_on_top();
+void get_splits(int index, char *name);

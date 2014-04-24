@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>Chicago Marathon for Pebble</title>
+		<link rel="stylesheet" href="style.css">
+		<script src="jquery-2.1.0.min.js"></script>
+		<script>
+			$(function() {
+				$.ajaxSetup({
+					async: false
+				});
+
+				var $add_button = $('#add-button');
+				var $tracked_runners = $('#tracked-runners');
+				var $tracking_page = $('#tracking');
+				var $search_page = $('#search');
+				var $done_searching_button = $('#done-button');
+				var $search_button = $('#search-button');
+				var $search_text = $('#search-text');
+
+				var appId = "502c333ae39f5eb1d4b586d0";
+				var eventName = "BACM2013";
+				localStorage.token = "";
+
+				var html = "";
+
+				//var tracked_runners = ["RBFNX3A5"];
+				if (window.location.hash && window.location.hash.substr(1).length > 0) {
+					var tracked_runners = JSON.parse(decodeURIComponent(window.location.hash.substr(1)));
+				} else {
+					var tracked_runners = [];
+				}
+
+				var register = function() {
+					$.getJSON("http://api2.rtrt.me/register?appid=" + appId, function(result) {
+						sessionStorage.setItem('token', result.token);
+						//alert(sessionStorage.getItem('token'));
+					});
+				};
+
+				register();
+
+				var getRunnerInfo = function(runnerId) {
+					var processRunner = function(data) {
+						var runner = data.list[0];
+						html = '<div class="tracked-runner" id="tracked' + runner.pid + '"><span class="name">' + runner.name + '</span><span class="bib">' + runner.bib + '</span> - <span class="country">' + runner.country + '</span> - <span class="gender">' + runner.sex + '</span><a class="remove-runner" href="#">X</a></div>';
+					};
+					var html;
+					var url = "http://api2.rtrt.me/events/" + eventName + "/profiles/" + runnerId + "?appid=" + appId + "&token=" + sessionStorage.getItem('token') + "";
+					$.getJSON(url, function(result) {
+						processRunner(result);
+					});
+
+
+					return html;
+				};
+
+				$add_button.click(function() {
+					$tracking_page.hide();
+					$search_page.show();
+					$('#header span').text("Add a Runner to Track");
+				});
+
+				$done_searching_button.click(function() {
+					$search_page.hide();
+					$tracking_page.show();
+					$('#header span').text("Tracked Runners");
+				});
+
+				var removeRunner = function(runnerId) {
+					var divId = "#tracked" + runnerId;
+					$(divId).slideUp("fast", function() {
+						$(this).remove();
+					});
+					var index = tracked_runners.indexOf(runnerId);
+					if (index > -1) {
+						tracked_runners.splice(index, 1);
+					}
+					if (tracked_runners.length == 0) {
+						var html = "<h2>You aren't tracking any runners.</h2>";
+						$tracked_runners.append(html);
+					}
+					console.log(tracked_runners);
+				};
+
+				$(document).on('click', '.remove-runner', function(event) {
+					$('.remove-runner').css('cursor','pointer');
+					event.preventDefault();
+					var id = $(this).parent().attr('id').substring(7);
+					console.log(id);
+					removeRunner(id);
+				});
+
+				$(document).on('click', '.add-runner', function(event) {
+					$('.add-runner').css('cursor','pointer');
+					event.preventDefault();
+					var id = $(this).parent().attr('id').substring(6);
+					if (tracked_runners.indexOf(id) > -1) {
+						alert("You're already tracking this runner.");
+					} else {
+						$(this).parent().hide("fast", function() {
+							$(this).remove();
+						});
+						addRunner(id);
+					}
+				});
+
+				var addRunner = function(runnerId) {
+					if (tracked_runners.length == 0) {
+						$tracked_runners.empty();
+					}
+					tracked_runners.push(runnerId);
+					console.log(tracked_runners);
+					$tracked_runners.append(getRunnerInfo(runnerId));
+				}
+
+				var searchRunners = function(query) {
+					var processSearch = function(data) {
+						if (data.list) {
+							$.each(data.list, function(i, result) {
+								if (!(tracked_runners.indexOf(result.pid) > -1)) {
+									var html = '<div class="searched-runner" id="search' + result.pid + '"><span class="name">' + result.name + '</span><span class="bib">' + result.bib + '</span> - <span class="country">' + result.country + '</span> - <span class="gender">' + result.sex + '</span><a class="add-runner" href="#">Add</a></div>';
+									$('#search-results').append(html);
+								}
+							});
+						} else {
+							if (data.error.type == "too_many_results") {
+								var html = "<h2>There were too many results. Try narrowing your search.</h2>";
+								$('#search-results').append(html);
+							} else {
+								var html = "<h2>An error occurred. Please try again.</h2>";
+								$tracked_runners.append(html);
+							}
+						}
+					}
+					var url = "http://api2.rtrt.me/events/" + eventName + "/profiles?search=" + query + "&max=50&failonmax=1&appid=" + appId + "&token=" + sessionStorage.getItem('token');
+					console.log(url);
+					$.getJSON(url, function(result) {
+						processSearch(result);
+					});
+				};
+
+				$('#save-button').click(function() {
+					window.location.href = "pebblejs://close#" + encodeURIComponent(JSON.stringify(tracked_runners));
+				});
+
+				$search_button.click(function() {
+					$('#search-results').empty();
+					var query = $search_text.val();
+					searchRunners(query);
+				});
+
+				if (tracked_runners.length == 0) {
+					var html = "<h2>You aren't tracking any runners.</h2>";
+					$tracked_runners.append(html);
+				}
+				$.each(tracked_runners, function(i, runner) {
+					$tracked_runners.append(getRunnerInfo(runner));
+				});
+			});
+		</script>
+	</head>
+	<body>
+		<div id="header">
+			<span>Tracked Runners</span>
+		</div>
+		<div id="tracking">
+			<div id="add-button">Add Runner to Track</div>
+			<div id="save-button">Save Tracked Runners</div>
+			<div id="tracked-runners">
+
+			</div>
+		</div>
+		<div id="search">
+			<div id="done-button">Return to Tracked Runners</div>
+			<div id="search-bar">
+				<input type="text" id="search-text" placeholder="Search by name or bib number...">
+				<button id="search-button">Search</button>
+			</div>
+			<div id="search-results">
+
+			</div>
+		</div>
+	</body>
+</html>

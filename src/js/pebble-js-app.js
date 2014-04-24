@@ -19,8 +19,7 @@ var appMessageQueue = [];
 var eventName = "BACM2013";
 var appId = "502c333ae39f5eb1d4b586d0";
 
-localStorage.trackedRunners = '["RBFNX3A5"]';
-
+//localStorage.trackedRunners = "[]";
 //localStorage.igt = "";
 
 // register
@@ -73,6 +72,11 @@ var getSplitsOfRunner = function(runnerId) {
                         splitsArray = response.list;
                         splitsArray.forEach(function(element, index, array) {
                             console.log(element.label + " - " + element.time);
+                            appMessageQueue.push({'message': {
+                                'split_index': index,
+                                'split_location': element.label,
+                                'split_time': element.time
+                            }});
                         });
                     } else {
                         console.log("No splits");
@@ -80,6 +84,7 @@ var getSplitsOfRunner = function(runnerId) {
                 }
             }
         }
+        sendAppMessage();
     };
     req.ontimeout = function() {
         console.log("Timed out");
@@ -98,7 +103,7 @@ var getNewSplits = function() {
     var req = new XMLHttpRequest();
     var runners = JSON.parse(localStorage.trackedRunners).join();
     var requestUrl = "http://api2.rtrt.me/events/" + eventName + "/profiles/" + runners + "/splits?timesort=1&appid=" + appId + "&token=" + localStorage.sessionToken + "&igt=" + localStorage.igt;
-    console.log(requestUrl);
+    //console.log(requestUrl);
     req.open('GET', requestUrl, true);
     req.onload = function(e) {
         if (req.readyState == 4) {
@@ -109,8 +114,11 @@ var getNewSplits = function() {
                         var splitsArray = response.list;
                         splitsArray.forEach(function(element, index, array) {
                             console.log(element.label + " - " + element.time);
-                            Pebble.showSimpleNotificationOnPebble(element.name, element.label + " - " + element.time);
+                            if (localStorage.igt != "") {
+                                Pebble.showSimpleNotificationOnPebble(element.name, element.label + " - " + element.time);
+                            }
                         });
+                        console.log(localStorage.igt);
                         localStorage.igt = response.info.lasti;
                     } else {
                         console.log("No results");
@@ -144,42 +152,55 @@ var poll = function() {
 // to Pebble
 var getTrackedRunners = function() {
     var runners = JSON.parse(localStorage.trackedRunners);
-    runners.forEach(function(element, index, array) {
-        var req = new XMLHttpRequest();
-        var requestUrl = "http://api2.rtrt.me/events/" + eventName + "/profiles/" + element + "?appid=" + appId + "&token=" + localStorage.sessionToken;
-        console.log(requestUrl);
-        req.open('GET', requestUrl, false);
-        req.onload = function(e) {
-            if (req.readyState == 4) {
-                if (req.status == 200) {
-                    if (req.responseText) {
-                        var response = JSON.parse(req.responseText);
-                        if (response.list) {
-                            var person = response.list[0];
-                            var name = person.fname + " " + person.lname;
-                            var subtitle = person.bib + " - " + person.sex + " - " + person.country;
-                            appMessageQueue.push({'message': {
-                                'index': index,
-                                'name': name,
-                                'subtitle': subtitle
-                            }});
-                        } else {
-                            getRunnerInfo();
+    console.log(runners);
+    if (runners == "") {
+        console.log("no runners");
+        sendError("Please add runners to track in the Pebble app on your phone.");
+        return;
+    } else {
+        runners.forEach(function(element, index, array) {
+            var req = new XMLHttpRequest();
+            var requestUrl = "http://api2.rtrt.me/events/" + eventName + "/profiles/" + element + "?appid=" + appId + "&token=" + localStorage.sessionToken;
+            console.log(requestUrl);
+            req.open('GET', requestUrl, false);
+            req.onload = function(e) {
+                if (req.readyState == 4) {
+                    if (req.status == 200) {
+                        if (req.responseText) {
+                            var response = JSON.parse(req.responseText);
+                            if (response.list) {
+                                var person = response.list[0];
+                                var name = person.fname + " " + person.lname;
+                                var subtitle = person.bib + " - " + person.sex + " - " + person.country;
+                                appMessageQueue.push({'message': {
+                                    'index': index,
+                                    'name': name,
+                                    'subtitle': subtitle
+                                }});
+                            } else {
+                                getRunnerInfo();
+                            }
                         }
                     }
                 }
-            }
-        };
-        req.ontimeout = function() {
-            console.log("Timed out");
-        };
-        req.onerror = function() {
-            console.log("Connectioin failed");
-        };
-        req.send(null);
-    });
-    console.log("Sending message...");
-    sendAppMessage();
+            };
+            req.ontimeout = function() {
+                console.log("Timed out");
+            };
+            req.onerror = function() {
+                console.log("Connectioin failed");
+            };
+            req.send(null);
+        });
+        console.log("Sending message...");
+        sendAppMessage();
+    }
+};
+
+var clearList = function() {
+    appMessageQueue.push({'message': {
+        'clean_list': 1
+    }});
 };
 
 // sendAppMessage
@@ -216,8 +237,49 @@ var sendAppMessage = function() {
     }
 };
 
+// sendError
+// ---------
+// sends error to the pebble
+var sendError = function(error) {
+    appMessageQueue.push({'message': {
+        'error': error
+    }});
+    sendAppMessage();
+};
+
+Pebble.addEventListener("appmessage", function(e) {
+    console.log("Got a message" + JSON.stringify(e.payload));
+    if (e.payload.hasOwnProperty('get_splits')) {
+        console.log("Getting splits");
+        var runners = JSON.parse(localStorage.trackedRunners);
+        getSplitsOfRunner(runners[e.payload.get_splits]);
+    }
+});
+
+Pebble.addEventListener("showConfiguration", function(e) {
+    var data = encodeURIComponent(localStorage.trackedRunners);
+    Pebble.openURL("http://logicalpixels.com/chicagomarathon/index.html#" + data);
+});
+
+Pebble.addEventListener("webviewclosed", function(e) {
+    var configuration = decodeURIComponent(e.response);
+    if (configuration) {
+        localStorage.trackedRunners = configuration;
+        clearList();
+        getTrackedRunners();
+    } else {
+
+    }
+});
+
 Pebble.addEventListener("ready", function(e) {
     register();
+    if (!localStorage.trackedRunners) {
+        localStorage.trackedRunners = '[]';
+    }
+    if (!localStorage.igt) {
+        localStorage.igt = "";
+    }
     getTrackedRunners();
     poll();
 });

@@ -25,12 +25,30 @@ void out_failed_handler(DictionaryIterator *failed, AppMessageResult reason,
 
 void in_received_handler(DictionaryIterator *iter, void *context) {
     APP_LOG(APP_LOG_LEVEL_DEBUG, "Got message");
-    if (!runners_is_on_top()) {
+    Tuple *split_index = dict_find(iter, SPLIT_INDEX);
+    Tuple *clean_tuple = dict_find(iter, CLEAN_LIST);
+    Tuple *error_tuple = dict_find(iter, ERROR);
+    if (error_tuple) {
+        APP_LOG(APP_LOG_LEVEL_DEBUG, "got an error");
         window_stack_pop_all(true);
-        runners_show();
-    }
-    if (runners_is_on_top()) {
-        runners_in_received_handler(iter);
+        show_error(iter);
+    } else if (clean_tuple) {
+        runners_clean_list();
+    } else if (split_index) {
+        if (!splits_is_on_top()) {
+            splits_show();
+        }
+        if (splits_is_on_top()) {
+            splits_in_received_handler(iter);
+        }
+    } else {
+        if (!runners_is_on_top()) {
+            window_stack_pop_all(true);
+            runners_show();
+        }
+        if (runners_is_on_top()) {
+            runners_in_received_handler(iter);
+        }
     }
 }
 
@@ -60,10 +78,14 @@ static void init(void) {
     layer_add_child(window_layer, text_layer_get_layer(text_layer));
 
     runners_init();
+    splits_init();
+    error_init();
 }
 
 static void deinit(void) {
+    splits_destroy();
     runners_destroy();
+    error_destroy();
     text_layer_destroy(text_layer);
     window_destroy(window);
 }
